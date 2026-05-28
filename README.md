@@ -1,6 +1,7 @@
 # obsutils
 
-
+* clone the repository with `git clone git@github.com:robertdstein/obsutils.git`
+* navigate to the repository with `cd obsutils`
 * create a conda environment with `conda create -n obsutils python=3.10`
 * activate the environment with `conda activate obsutils`
 * install the package with `pip install -e .`

@@ -202,3 +202,24 @@ def get_target_list(run_id: int, client: SkyportalClient = None) -> pd.DataFrame
     df = pd.DataFrame(all_res)
 
     return df
+
+def get_skyportal_names(ra: float, dec: float, radius_arcsec: float = 1.5, client: SkyportalClient | None = None):
+
+    if client is None:
+        client = SkyportalClient()
+        client.set_up_session()
+
+    res = client.api(
+        "GET",
+        "source_exists/",
+        data={
+            "ra": ra,
+            "dec": dec,
+            "radius": radius_arcsec/3600.0
+        }
+    )
+    res.raise_for_status()
+
+
+    sources = res.json()["data"]["message"].split(":")[-1].strip()[:-1].split(",")
+    return sources
