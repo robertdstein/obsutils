@@ -21,12 +21,18 @@ from obsutils.spherex.constants import (
     IRSA_ROOT,
     TAP_URL,
 )
+from obsutils.spherex.psf import psf_weight
 
 # Catalogue searched for neighbours, and the limits applied to it. AllWISE is
 # the only all-sky catalogue covering the SPHEREx wavelength range.
 COMPANION_CATALOGUE = "allwise_p3as_psd"
 SELF_MATCH_ARCSEC = 3.0
 MAX_COMPANIONS = 5
+
+# WISE W1 Vega zero point in Jy, and the wavelength its PSF overlap is
+# evaluated at, for ranking how much each neighbour contaminates the target.
+W1_ZERO_POINT_JY = 309.54
+COMPANION_RANKING_WAVELENGTH = 3.353
 
 logger = logging.getLogger(__name__)
 
@@ -144,18 +150,24 @@ def summarise_coverage(images: pd.DataFrame) -> pd.DataFrame:
 
 def find_companions(coord: SkyCoord) -> list[SkyCoord]:
     """
-    Find catalogued sources near a target, to be fitted alongside it.
+    Find the catalogued sources that most contaminate a target's photometry.
 
     At 6.15 arcsec/pixel a neighbour tens of arcsec away is only a pixel or two
     from the target, so its light lands in the same PSF. Fitting it explicitly
-    keeps that light out of the target's amplitude. Sources are returned
-    brightest first.
+    keeps that light out of the target's amplitude.
+
+    Sources are ranked by how much they actually contribute at the target
+    position, which is their flux times the PSF overlap at their separation,
+    not by brightness. A bright source 35 arcsec away contributes nothing, while
+    a faint one at 10 arcsec contributes a great deal, so ranking on brightness
+    fits the wrong ones. Anything closer than the PSF can resolve is the target
+    itself and is left alone.
 
     This finds point sources. It does not solve the harder problem of an
     extended host, whose light no point-source model removes.
 
     :param coord: Position of the target
-    :return: Companion positions, brightest first
+    :return: Companion positions, most contaminating first
     """
     ra, dec = coord.ra.deg, coord.dec.deg
 
@@ -164,22 +176,33 @@ def find_companions(coord: SkyCoord) -> list[SkyCoord]:
     FROM {COMPANION_CATALOGUE}
     WHERE CONTAINS(POINT('ICRS', ra, dec),
                    CIRCLE('ICRS', {ra}, {dec}, {COMPANION_RADIUS / 3600})) = 1
-    ORDER BY w1mpro
     """
     table = pyvo.dal.TAPService(TAP_URL).search(query).to_table()
 
-    companions = []
-    for row in table:
-        position = SkyCoord(row["ra"], row["dec"], unit="deg")
-        if coord.separation(position).arcsec < SELF_MATCH_ARCSEC:
-            continue
-        companions.append(position)
-        if len(companions) >= MAX_COMPANIONS:
-            break
+    if len(table) == 0:
+        logger.info("No catalogued companions near the target")
+        return []
 
-    separations = ", ".join(f"{coord.separation(c).arcsec:.1f}" for c in companions)
+    positions = SkyCoord(table["ra"], table["dec"], unit="deg")
+    separation = coord.separation(positions).arcsec
+
+    magnitude = np.asarray(table["w1mpro"], dtype=float)
+    flux = W1_ZERO_POINT_JY * 10 ** (-magnitude / 2.5)
+    contribution = flux * psf_weight(separation, COMPANION_RANKING_WAVELENGTH)
+    contribution[~np.isfinite(contribution)] = 0.0
+
+    # Anything this close cannot be separated from the target by the PSF, so it
+    # is the target as far as the fit is concerned.
+    contribution[separation < SELF_MATCH_ARCSEC] = 0.0
+
+    order = np.argsort(-contribution)[:MAX_COMPANIONS]
+    order = [index for index in order if contribution[index] > 0]
+
+    companions = [positions[index] for index in order]
+    separations = ", ".join(f"{separation[index]:.1f}" for index in order)
     logger.info(
-        f"Found {len(companions)} companions within {COMPANION_RADIUS:.0f} arcsec, "
+        f"Fitting {len(companions)} companions within {COMPANION_RADIUS:.0f} arcsec, "
         f"at {separations} arcsec"
     )
+
     return companions

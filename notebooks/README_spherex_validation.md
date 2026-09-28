@@ -168,7 +168,8 @@ also exercises the companion fitting.
 spherex-phot --ra 219.340708 --dec -58.794444 --reference-mjd 60940 --deblend --plot
 ```
 
-416 images cover the position, 129 before the eruption and 287 after; 382 were measured.
+416 images cover the position, 129 before the eruption and 287 after. A worked version is in
+[spherex_nova.ipynb](spherex_nova.ipynb).
 
 | epoch | t - t_eruption | PSF flux |
 |---|---|---|
