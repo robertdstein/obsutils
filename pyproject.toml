@@ -38,7 +38,9 @@ dependencies = [
     "astroplan",
     "matplotlib",
     "pandas",
-    "astroquery"
+    "astroquery",
+    "pyvo",
+    "photutils"
 ]
 [project.optional-dependencies]
 dev = [
@@ -51,12 +53,18 @@ dev = [
 [project.urls]
 Homepage = "https://github.com/robertdstein/obsutils"
 
+[project.scripts]
+spherex-phot = "obsutils.spherex.pipeline:main"
+
 [tool.setuptools]
-packages = ["obsutils"]
+packages = ["obsutils", "obsutils.data", "obsutils.spherex", "obsutils.utils"]
 
 [tool.coverage.run]
 source = ["obsutils"]
 
+
+[tool.black]
+target-version = ["py310"]
 
 [tool.isort]
 profile = "black"
