@@ -132,6 +132,7 @@ def run_photometry(
     dec: float | None = None,
     reference_mjd: float | None = None,
     deblend: bool = False,
+    archival: bool = False,
     wavelength_edges: np.ndarray | None = None,
 ) -> SpherexResult:
     """
@@ -143,6 +144,10 @@ def run_photometry(
     :param reference_mjd: Epoch splitting the stacks, e.g. discovery
     :param deblend: Fit catalogued neighbours alongside the target and tilt the
         background, for a target blended with a host or a crowded field
+    :param archival: Also estimate the pre-SPHEREx flux from archival catalogues
+        and overlay it on the SED. Off by default: it is a rough reference
+        level rather than a measurement, and in a crowded field it over-predicts
+        badly
     :param wavelength_edges: Wavelength bin edges in micron
     :return: Images, photometry, stacks and difference spectrum
     """
@@ -181,9 +186,9 @@ def run_photometry(
                 )
         difference = difference_stacks(stacks)
 
-    # The overlay shows what was at this position before SPHEREx, so it includes
+    # The estimate covers everything at this position before SPHEREx, including
     # the companions even when they were fitted out of the target's amplitude.
-    archival_estimate = archival_photometry(coord)
+    archival_estimate = archival_photometry(coord) if archival else None
 
     result = SpherexResult(
         name=label,
@@ -313,6 +318,12 @@ def main(args: list[str] | None = None):
         "--reference-mjd", type=float, help="epoch splitting the stacks, e.g. discovery"
     )
     parser.add_argument(
+        "--archival",
+        action="store_true",
+        help="estimate the pre-SPHEREx flux from archival catalogues and "
+        "overlay it on the SED",
+    )
+    parser.add_argument(
         "--deblend",
         action="store_true",
         help="fit catalogued neighbours alongside the target, for a blended "
@@ -331,6 +342,7 @@ def main(args: list[str] | None = None):
         dec=parsed.dec,
         reference_mjd=parsed.reference_mjd,
         deblend=parsed.deblend,
+        archival=parsed.archival,
     )
 
     if len(result.photometry) == 0:

@@ -221,7 +221,9 @@ the expected signature. AT2025abcr's conclusion is unchanged either way.
 ## 7. Archival overlay on the SED plots
 
 `archival_photometry` estimates what a forced fit at a position would have measured before
-SPHEREx launched, by summing catalogued sources nearby. Each source is weighted by the fraction
+SPHEREx launched, by summing catalogued sources nearby. It is **off by default**, since it is a
+rough reference level rather than a measurement and fails badly in crowded fields; pass
+`archival=True`, or `--archival`, to compute it and overlay it on the SED. Each source is weighted by the fraction
 of its flux a fit centred on the target picks up, computed from the real ePSF: for a fit that
 solves only for amplitude at a fixed position, a neighbour offset by s contributes the
 normalised overlap of the two PSFs.
